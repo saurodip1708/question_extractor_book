@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Book Chapter Analyzer",
+  "description": "Upload a book in PDF format. This tool uses Gemini 2.5 Pro to automatically identify chapters, split the book, and generate a Markdown file for each chapter containing all questions, their difficulty, and Bloom's Taxonomy level.",
+  "requestFramePermissions": []
+}
