@@ -7,7 +7,7 @@
 ## Step-by-Step Instructions
 
 ### 1️⃣ Go to Repository Settings
-1. Open https://github.com/ClaexaAI/question_extractor
+1. Open https://github.com/saurodip1708/question_extractor_book
 2. Click the **Settings** tab (top right)
 
 ### 2️⃣ Enable GitHub Pages
@@ -25,7 +25,7 @@
 ### 4️⃣ Access Your Live App! 🎉
 Once deployment completes, your app will be live at:
 
-**🔗 https://claexaai.github.io/question_extractor/**
+**🔗 https://saurodip1708.github.io/question_extractor_book/**
 
 ---
 
@@ -78,7 +78,7 @@ GitHub Actions will automatically rebuild and redeploy! ✨
 ### App Not Loading?
 - Clear browser cache
 - Check if deployment completed successfully
-- Verify the URL: https://claexaai.github.io/question_extractor/
+- Verify the URL: https://saurodip1708.github.io/question_extractor_book/
 
 ### API Key Issues?
 - Get new key from https://aistudio.google.com/app/apikey
@@ -101,6 +101,8 @@ GitHub Actions will automatically rebuild and redeploy! ✨
 
 ## 🎯 Next Action Required
 
-**Enable GitHub Pages in repository settings** (See steps above)
+**Enable GitHub Pages in repository settings**
+
+Visit: https://github.com/saurodip1708/question_extractor_book/settings/pages
 
 That's it! Once you enable GitHub Pages, your app will be live! 🚀

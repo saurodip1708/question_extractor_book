@@ -5,7 +5,7 @@
 Your Gemini Book Analyzer has been successfully pushed to GitHub and is ready for deployment.
 
 ### Repository Details
-- **GitHub Repository**: https://github.com/ClaexaAI/question_extractor
+- **GitHub Repository**: https://github.com/saurodip1708/question_extractor_book
 - **Branch**: main
 - **Deployment Method**: GitHub Actions (automatic)
 
@@ -45,7 +45,7 @@ Your Gemini Book Analyzer has been successfully pushed to GitHub and is ready fo
 
 ### Step 1: Enable GitHub Pages in Repository Settings
 
-1. Go to your repository: https://github.com/ClaexaAI/question_extractor
+1. Go to your repository: https://github.com/saurodip1708/question_extractor_book
 2. Click on **Settings** (top menu)
 3. Scroll down to **Pages** section (left sidebar)
 4. Under **Source**, select **"GitHub Actions"**
@@ -61,7 +61,7 @@ The GitHub Action will automatically run and deploy your app. You can monitor it
 ### Step 3: Access Your Live App
 
 Once deployed, your app will be available at:
-**https://claexaai.github.io/question_extractor/**
+**https://saurodip1708.github.io/question_extractor_book/**
 
 ---
 

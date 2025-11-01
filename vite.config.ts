@@ -5,5 +5,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   // Set to match GitHub repository name
-  base: '/question_extractor/', 
+  base: '/question_extractor_book/', 
 })
