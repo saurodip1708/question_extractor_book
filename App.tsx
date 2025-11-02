@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { getChapterListFromPdf, getQuestionsFromChapterPdf } from './services/geminiService';
 import { sliceSingleChapterPdf } from './services/pdfService';
-import { generateQuestionsPdf } from './services/pdfGeneratorService';
 import FileUpload from './components/FileUpload';
 import StatusDisplay from './components/StatusDisplay';
 import ResultsView from './components/ResultsView';
@@ -167,18 +166,14 @@ export default function App() {
 
         setProgressMessage(`Analyzing Chapter ${chapterIndex}/${confirmedChapters.length}: "${chapter.chapterTitle}"`);
         addLog(`Sending chapter PDF to Gemini 2.5 Flash for visual multimodal analysis (text + images).`);
-        const questionData = await getQuestionsFromChapterPdf(ai, chapterPdfData, metadata.board, metadata.subject, chapter.chapterTitle);
-        addLog(`Received question analysis from Gemini. Found ${questionData.questions.length} questions.`);
+        const markdownContent = await getQuestionsFromChapterPdf(ai, chapterPdfData, metadata.board, metadata.subject, chapter.chapterTitle);
+        addLog(`Received question analysis from Gemini.`);
 
-        setProgressMessage(`Generating PDF for Chapter ${chapterIndex}/${confirmedChapters.length}: "${chapter.chapterTitle}"`);
-        addLog(`Generating PDF with questions and metadata...`);
-        const pdfBytes = await generateQuestionsPdf(questionData);
-        
         const safeFileName = chapter.chapterTitle.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');
-        const analysisFileName = `${chapterIndex}_${safeFileName}.pdf`;
+        const analysisFileName = `${chapterIndex}_${safeFileName}.md`;
         
-        addLog(`Downloading PDF file: ${analysisFileName}`);
-        const analysisBlob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+        addLog(`Downloading markdown file: ${analysisFileName}`);
+        const analysisBlob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
         saveAs(analysisBlob, analysisFileName);
       }
 

@@ -102,7 +102,7 @@ Return only the chapter titles. The user will manually set page numbers in the n
   }
 }
 
-export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData: Uint8Array, board: string, subject: string, chapterTitle: string): Promise<{ board: string; subject: string; chapterTitle: string; questions: any[] }> {
+export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData: Uint8Array, board: string, subject: string, chapterTitle: string): Promise<string> {
   try {
     const base64Pdf = uint8ArrayToBase64(chapterPdfData);
 
@@ -114,39 +114,29 @@ export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData
               text: `You are a pedagogical expert. Analyze the following PDF of a book chapter. Your task is to extract all questions present in this chapter. 
 This includes text-based questions AND questions presented as images (e.g., diagrams, charts, figures that require interpretation).
 
-For EACH question you find, provide:
-1. **Question Number** (sequential: 1, 2, 3...)
-2. **Question Text** (full text, or detailed description if image-based)
-3. **Question Type**: One of these categories:
-   - MCQ (Multiple Choice Question)
-   - Very Short Answer (1 mark, 1-2 lines)
-   - Short Answer (2-3 marks, 30-50 words)
-   - Long Answer (4-6 marks, 80-120 words)
-   - Case Based (passage/data followed by questions)
-   - Assertion-Reason (both statements given)
-   - Fill in the Blanks
-   - True/False
-   - Match the Following
+For EACH question you find, provide the information in markdown format as follows:
 
-4. **Suggested Marks** (1, 2, 3, 4, 5, 6, etc. - based on question complexity and type)
+### Question [Number]
 
-5. **DOK Level** (Depth of Knowledge - 1 to 4):
-   - Level 1: Recall & Reproduction (memorization, facts, definitions)
-   - Level 2: Skills & Concepts (explain, classify, compare, estimate)
-   - Level 3: Strategic Thinking (reasoning, planning, justifying, hypothesizing)
-   - Level 4: Extended Thinking (investigation, research, multiple steps, real-world application)
+**Question:** [The full text of the question, or detailed description if image-based. Keep all mathematical symbols as-is: √, π, ×, ÷, etc.]
 
-6. **Bloom's Taxonomy Level**:
-   - Remembering (recall facts)
-   - Understanding (explain ideas)
-   - Applying (use in new situations)
-   - Analyzing (break down, examine relationships)
-   - Evaluating (make judgments, critique)
-   - Creating (produce new ideas, design solutions)
+**Type:** [MCQ / Very Short Answer / Short Answer / Long Answer / Case Based / Assertion-Reason / Fill in the Blanks / True-False / Match the Following]
 
-7. **Difficulty**: Easy, Medium, or Hard
+**Suggested Marks:** [1-6 based on complexity]
 
-Be thorough and accurate in your classification. If no questions are found, return an empty array.`
+**DOK Level:** [1-4]
+- Level 1: Recall & Reproduction
+- Level 2: Skills & Concepts
+- Level 3: Strategic Thinking
+- Level 4: Extended Thinking
+
+**Bloom's Taxonomy:** [Remembering / Understanding / Applying / Analyzing / Evaluating / Creating]
+
+**Difficulty:** [Easy / Medium / Hard]
+
+---
+
+Be thorough and accurate in your classification. Preserve all mathematical notation and special characters exactly as they appear. If no questions are found, return: "No questions found in this chapter."`
             },
             {
               inlineData: {
@@ -156,67 +146,22 @@ Be thorough and accurate in your classification. If no questions are found, retu
             }
           ]
         },
-        config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    questions: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                questionNumber: {
-                                    type: Type.INTEGER,
-                                    description: 'Sequential question number',
-                                },
-                                questionText: {
-                                    type: Type.STRING,
-                                    description: 'Full text of the question or description if image-based',
-                                },
-                                questionType: {
-                                    type: Type.STRING,
-                                    description: 'Type of question: MCQ, Very Short Answer, Short Answer, Long Answer, Case Based, Assertion-Reason, Fill in the Blanks, True/False, Match the Following',
-                                },
-                                suggestedMarks: {
-                                    type: Type.INTEGER,
-                                    description: 'Suggested marks for the question (1-6)',
-                                },
-                                dokLevel: {
-                                    type: Type.INTEGER,
-                                    description: 'Depth of Knowledge level (1-4)',
-                                },
-                                bloomsLevel: {
-                                    type: Type.STRING,
-                                    description: 'Blooms Taxonomy level: Remembering, Understanding, Applying, Analyzing, Evaluating, Creating',
-                                },
-                                difficulty: {
-                                    type: Type.STRING,
-                                    description: 'Difficulty level: Easy, Medium, Hard',
-                                },
-                            },
-                            required: ['questionNumber', 'questionText', 'questionType', 'suggestedMarks', 'dokLevel', 'bloomsLevel', 'difficulty'],
-                        },
-                    },
-                },
-                required: ['questions'],
-            },
-        },
     });
 
-    const jsonText = response.text?.trim() || '';
-    if (!jsonText) {
-      throw new Error("Gemini returned an empty response for questions.");
-    }
+    const responseText = response.text || 'No questions found in this chapter.';
     
-    const data = JSON.parse(jsonText);
+    // Add metadata header
+    const markdownWithMetadata = `# Question Bank
+
+**Board:** ${board}
+**Subject:** ${subject}
+**Chapter:** ${chapterTitle}
+
+---
+
+${responseText}`;
     
-    return {
-      board,
-      subject,
-      chapterTitle,
-      questions: data.questions || [],
-    };
+    return markdownWithMetadata;
   } catch (error) {
     console.error("Error getting questions from Gemini:", error);
     throw new Error("Failed to analyze the chapter content with Gemini.");
