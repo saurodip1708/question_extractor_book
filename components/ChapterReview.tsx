@@ -17,7 +17,7 @@ const ChapterReview = ({ chapters: initialChapters, onConfirm, onCancel }: Chapt
       newChapters[index][field] = value as string;
     } else {
       const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
-      if (!isNaN(numValue) && numValue > 0) {
+      if (!isNaN(numValue) && numValue >= 0) {
         newChapters[index][field] = numValue;
       }
     }
@@ -35,6 +35,8 @@ const ChapterReview = ({ chapters: initialChapters, onConfirm, onCancel }: Chapt
     chapters.forEach((chapter, index) => {
       if (!chapter.chapterTitle.trim()) {
         newErrors[index] = 'Chapter title is required';
+      } else if (chapter.startPage <= 0 || chapter.endPage <= 0) {
+        newErrors[index] = 'Please set valid page numbers (must be greater than 0)';
       } else if (chapter.startPage >= chapter.endPage) {
         newErrors[index] = 'Start page must be less than end page';
       } else if (index > 0 && chapter.startPage <= chapters[index - 1].endPage) {
@@ -59,11 +61,11 @@ const ChapterReview = ({ chapters: initialChapters, onConfirm, onCancel }: Chapt
   return (
     <div className="space-y-4">
       <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
-        <h3 className="text-xl font-semibold text-white mb-2">Review and Edit Chapters</h3>
+        <h3 className="text-xl font-semibold text-white mb-2">Set Page Numbers for Chapters</h3>
         <p className="text-gray-300 text-sm">
-          AI has detected {chapters.length} chapters. Please verify the page numbers are correct.
+          AI has detected {chapters.length} chapters. <strong className="text-yellow-400">Please manually set the page numbers</strong> for each chapter.
           <br />
-          <span className="text-yellow-400">⚠️ If page numbers look like "1.1, 1.2" (section numbers), please correct them to actual page numbers.</span>
+          <span className="text-gray-400">💡 Look at your book's table of contents or page footers to find the correct page numbers.</span>
         </p>
       </div>
 
@@ -99,9 +101,10 @@ const ChapterReview = ({ chapters: initialChapters, onConfirm, onCancel }: Chapt
                     <input
                       type="number"
                       min="1"
-                      value={chapter.startPage}
+                      value={chapter.startPage || ''}
                       onChange={(e) => handleChapterChange(index, 'startPage', e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="e.g., 1"
+                      className="w-full bg-gray-800 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
                     />
                   </div>
                   
@@ -112,9 +115,10 @@ const ChapterReview = ({ chapters: initialChapters, onConfirm, onCancel }: Chapt
                     <input
                       type="number"
                       min="1"
-                      value={chapter.endPage}
+                      value={chapter.endPage || ''}
                       onChange={(e) => handleChapterChange(index, 'endPage', e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="e.g., 50"
+                      className="w-full bg-gray-800 border border-gray-600 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-500"
                     />
                   </div>
                 </div>

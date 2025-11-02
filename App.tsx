@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { getChapterListFromPdf, getQuestionsFromChapterPdf } from './services/geminiService';
 import { sliceSingleChapterPdf } from './services/pdfService';
+import { generateQuestionsPdf } from './services/pdfGeneratorService';
 import FileUpload from './components/FileUpload';
 import StatusDisplay from './components/StatusDisplay';
 import ResultsView from './components/ResultsView';
@@ -166,14 +167,18 @@ export default function App() {
 
         setProgressMessage(`Analyzing Chapter ${chapterIndex}/${confirmedChapters.length}: "${chapter.chapterTitle}"`);
         addLog(`Sending chapter PDF to Gemini 2.5 Flash for visual multimodal analysis (text + images).`);
-        const analysisContent = await getQuestionsFromChapterPdf(ai, chapterPdfData, metadata.board, metadata.subject);
-        addLog(`Received question analysis from Gemini.`);
+        const questionData = await getQuestionsFromChapterPdf(ai, chapterPdfData, metadata.board, metadata.subject, chapter.chapterTitle);
+        addLog(`Received question analysis from Gemini. Found ${questionData.questions.length} questions.`);
 
-        const safeFileName = chapter.chapterTitle.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');
-        const analysisFileName = `${chapterIndex}_${safeFileName}.md`;
+        setProgressMessage(`Generating PDF for Chapter ${chapterIndex}/${confirmedChapters.length}: "${chapter.chapterTitle}"`);
+        addLog(`Generating PDF with questions and metadata...`);
+        const pdfBytes = await generateQuestionsPdf(questionData);
         
-        addLog(`Downloading Markdown file: ${analysisFileName}`);
-        const analysisBlob = new Blob([analysisContent], { type: 'text/markdown;charset=utf-t' });
+        const safeFileName = chapter.chapterTitle.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');
+        const analysisFileName = `${chapterIndex}_${safeFileName}.pdf`;
+        
+        addLog(`Downloading PDF file: ${analysisFileName}`);
+        const analysisBlob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         saveAs(analysisBlob, analysisFileName);
       }
 

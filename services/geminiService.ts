@@ -23,52 +23,26 @@ export async function getChapterListFromPdf(ai: GoogleGenAI, pdfData: Uint8Array
             {
               text: `You are an expert document analyzer. Analyze the following PDF pages which contain the table of contents of a book.
 
-CRITICAL INSTRUCTIONS - READ CAREFULLY:
-
-IDENTIFYING SECTION NUMBERS vs PAGE NUMBERS:
-1. Section numbers use DECIMALS: "1.1", "1.2", "2.1", "5.1-5.61" - These are NOT page numbers!
-2. Page numbers are WHOLE INTEGERS: "1", "15", "42", "138" - These ARE page numbers!
-
-COMMON TOC FORMATS:
-Format 1: "Chapter Name ................ Page Number"
-Example: "REAL NUMBERS ................ 15" → startPage: 15
-
-Format 2: "Chapter Name    Section Range    Page Number"  
-Example: "REAL NUMBERS    1.1-1.64    15" → Section: 1.1-1.64 (IGNORE), Page: 15
-
-Format 3: Only section numbers shown (like "1.1-1.64", "2.1-2.67")
-In this case, you MUST look at the ACTUAL PAGE NUMBERS at the bottom or top of the PDF pages themselves!
-
-SPECIAL CASE - When TOC only shows section numbers:
-If the TOC shows ONLY decimals like:
-- "1. REAL NUMBERS      1.1-1.64"
-- "2. POLYNOMIALS       2.1-2.67"
-- "3. PAIR OF LINEAR... 3.1-3.118"
-
-This means:
-- The numbers on right (1.1-1.64) are SECTION ranges, NOT pages
-- You MUST scan the PDF pages to find actual page numbers
-- Look at page footers/headers in the TOC PDF for hints
-- Estimate based on typical textbook structure (30-50 pages per chapter)
-- First chapter usually starts around page 1-15
-
 YOUR TASK:
-1. First, identify if the TOC shows actual page numbers or just section numbers
-2. Look at the page numbers at the BOTTOM or TOP of each PDF page (page headers/footers)
-3. Identify each chapter title from the TOC
-4. For each chapter:
-   - If the TOC has real page numbers (integers), use those
-   - If the TOC only has section numbers (decimals like 1.1, 2.1), scan the PDF pages to find where chapters actually start
-   - Look for chapter headings in the PDF content and note the page number shown on that page
-5. Return page numbers as whole integers only
-6. If you cannot find exact pages, estimate: 
-   - Chapter 1 usually starts around page 1-20
-   - Each chapter is typically 30-60 pages
-   - Sequential chapters don't overlap
+Extract ONLY the chapter titles/names from the table of contents. Do NOT extract page numbers - the user will add them manually later.
 
-Example Output:
-Chapter "REAL NUMBERS" - found on page 1 of PDF (footer shows "1")
-Chapter "POLYNOMIALS" - found on page 50 of PDF (footer shows "50")`,
+INSTRUCTIONS:
+1. Look at the table of contents in the PDF
+2. Identify all chapter titles
+3. Extract just the chapter names (ignore section numbers like 1.1, 1.2, and page numbers)
+4. Return clean chapter titles without any numbers or page references
+5. Maintain the order of chapters as they appear in the TOC
+
+Example:
+If the TOC shows:
+- "1. REAL NUMBERS      1.1-1.64      Page 1"
+- "2. POLYNOMIALS       2.1-2.67      Page 50"
+
+You should extract:
+- "REAL NUMBERS"
+- "POLYNOMIALS"
+
+Return only the chapter titles. The user will manually set page numbers in the next step.`,
             },
             {
               inlineData: {
@@ -91,11 +65,11 @@ Chapter "POLYNOMIALS" - found on page 50 of PDF (footer shows "50")`,
                         },
                         startPage: {
                             type: Type.INTEGER,
-                            description: 'The starting page number of the chapter.',
+                            description: 'Default to 0 - user will set this manually.',
                         },
                         endPage: {
                             type: Type.INTEGER,
-                            description: 'The ending page number of the chapter.',
+                            description: 'Default to 0 - user will set this manually.',
                         },
                     },
                     required: ['chapterTitle', 'startPage', 'endPage'],
@@ -110,64 +84,25 @@ Chapter "POLYNOMIALS" - found on page 50 of PDF (footer shows "50")`,
     }
     const chapters = JSON.parse(jsonText) as Chapter[];
     
-    // Validation and correction: filter out invalid chapters
-    const validChapters = chapters.filter((c, index) => {
-      // Check if chapter has required fields
-      if (!c.chapterTitle || !c.startPage || !c.endPage) {
-        console.warn(`Skipping invalid chapter: ${JSON.stringify(c)}`);
-        return false;
-      }
-      
-      // Check if page numbers look like section numbers (too small for actual pages)
-      // If chapter 1 has pages "1-64", these are likely section numbers, not actual pages
-      const range = c.endPage - c.startPage;
-      if (index === 0 && c.startPage === 1 && range > 50 && range < 200) {
-        // First chapter with suspicious range - might be section numbers
-        console.warn(`Chapter "${c.chapterTitle}" has range ${c.startPage}-${c.endPage} which may be section numbers. Adjusting...`);
-        // Estimate actual pages: first chapter typically starts at page 1-20
-        c.startPage = 1 + (index * 40); // Rough estimate
-        c.endPage = c.startPage + 39;
-      }
-      
-      // Check if page numbers are valid (positive integers, not too large)
-      if (c.startPage < 1 || c.endPage < 1 || c.startPage > 5000 || c.endPage > 5000) {
-        console.warn(`Skipping chapter with invalid page range: ${c.chapterTitle} (${c.startPage}-${c.endPage})`);
-        return false;
-      }
-      
-      // Check if startPage is less than or equal to endPage
-      if (c.startPage > c.endPage) {
-        console.warn(`Skipping chapter with reversed page numbers: ${c.chapterTitle} (${c.startPage}-${c.endPage})`);
-        return false;
-      }
-      
-      // Ensure pages don't overlap (each chapter should start after previous ends)
-      if (index > 0 && validChapters.length > 0) {
-        const prevChapter = validChapters[validChapters.length - 1];
-        if (c.startPage <= prevChapter.endPage) {
-          console.warn(`Chapter "${c.chapterTitle}" overlaps with previous chapter. Adjusting...`);
-          c.startPage = prevChapter.endPage + 1;
-          if (c.endPage < c.startPage) {
-            c.endPage = c.startPage + 39; // Default 40 pages per chapter
-          }
-        }
-      }
-      
-      return true;
-    });
+    // Set default page numbers to 0 (user will fill them in)
+    const chaptersWithDefaults = chapters.map((c) => ({
+      chapterTitle: c.chapterTitle,
+      startPage: 0,
+      endPage: 0,
+    }));
     
-    if (validChapters.length === 0) {
-        throw new Error("No valid chapters found. Please check if the PDF has a proper table of contents.");
+    if (chaptersWithDefaults.length === 0) {
+        throw new Error("No chapters found. Please check if the PDF has a proper table of contents.");
     }
     
-    return validChapters;
+    return chaptersWithDefaults;
   } catch (error) {
     console.error("Error getting chapter list from Gemini:", error);
     throw new Error("Failed to analyze the book's table of contents with Gemini.");
   }
 }
 
-export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData: Uint8Array, board: string, subject: string): Promise<string> {
+export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData: Uint8Array, board: string, subject: string, chapterTitle: string): Promise<{ board: string; subject: string; chapterTitle: string; questions: any[] }> {
   try {
     const base64Pdf = uint8ArrayToBase64(chapterPdfData);
 
@@ -179,22 +114,39 @@ export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData
               text: `You are a pedagogical expert. Analyze the following PDF of a book chapter. Your task is to extract all questions present in this chapter. 
 This includes text-based questions AND questions presented as images (e.g., diagrams, charts, figures that require interpretation).
 
-- For text-based questions, provide the full text.
-- For image-based questions, provide a detailed description of the image and what it is asking.
+For EACH question you find, provide:
+1. **Question Number** (sequential: 1, 2, 3...)
+2. **Question Text** (full text, or detailed description if image-based)
+3. **Question Type**: One of these categories:
+   - MCQ (Multiple Choice Question)
+   - Very Short Answer (1 mark, 1-2 lines)
+   - Short Answer (2-3 marks, 30-50 words)
+   - Long Answer (4-6 marks, 80-120 words)
+   - Case Based (passage/data followed by questions)
+   - Assertion-Reason (both statements given)
+   - Fill in the Blanks
+   - True/False
+   - Match the Following
 
-For every question you find (both text and image-based), determine its difficulty level (Easy, Medium, or Hard) and its corresponding Bloom's Taxonomy level (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating).
+4. **Suggested Marks** (1, 2, 3, 4, 5, 6, etc. - based on question complexity and type)
 
-Format the output as a single Markdown file. Use the following structure for each question:
-\`\`\`markdown
-### Question [Number]
+5. **DOK Level** (Depth of Knowledge - 1 to 4):
+   - Level 1: Recall & Reproduction (memorization, facts, definitions)
+   - Level 2: Skills & Concepts (explain, classify, compare, estimate)
+   - Level 3: Strategic Thinking (reasoning, planning, justifying, hypothesizing)
+   - Level 4: Extended Thinking (investigation, research, multiple steps, real-world application)
 
-**Question:** [The full text of the question, or a detailed description of the image-based question]
+6. **Bloom's Taxonomy Level**:
+   - Remembering (recall facts)
+   - Understanding (explain ideas)
+   - Applying (use in new situations)
+   - Analyzing (break down, examine relationships)
+   - Evaluating (make judgments, critique)
+   - Creating (produce new ideas, design solutions)
 
-**Difficulty:** [Easy/Medium/Hard]
+7. **Difficulty**: Easy, Medium, or Hard
 
-**Bloom's Level:** [Remembering/Understanding/Applying/Analyzing/Evaluating/Creating]
-\`\`\`
-If no questions are found in the chapter, return a single message: 'No questions found in this chapter.'`
+Be thorough and accurate in your classification. If no questions are found, return an empty array.`
             },
             {
               inlineData: {
@@ -204,18 +156,67 @@ If no questions are found in the chapter, return a single message: 'No questions
             }
           ]
         },
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    questions: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                questionNumber: {
+                                    type: Type.INTEGER,
+                                    description: 'Sequential question number',
+                                },
+                                questionText: {
+                                    type: Type.STRING,
+                                    description: 'Full text of the question or description if image-based',
+                                },
+                                questionType: {
+                                    type: Type.STRING,
+                                    description: 'Type of question: MCQ, Very Short Answer, Short Answer, Long Answer, Case Based, Assertion-Reason, Fill in the Blanks, True/False, Match the Following',
+                                },
+                                suggestedMarks: {
+                                    type: Type.INTEGER,
+                                    description: 'Suggested marks for the question (1-6)',
+                                },
+                                dokLevel: {
+                                    type: Type.INTEGER,
+                                    description: 'Depth of Knowledge level (1-4)',
+                                },
+                                bloomsLevel: {
+                                    type: Type.STRING,
+                                    description: 'Blooms Taxonomy level: Remembering, Understanding, Applying, Analyzing, Evaluating, Creating',
+                                },
+                                difficulty: {
+                                    type: Type.STRING,
+                                    description: 'Difficulty level: Easy, Medium, Hard',
+                                },
+                            },
+                            required: ['questionNumber', 'questionText', 'questionType', 'suggestedMarks', 'dokLevel', 'bloomsLevel', 'difficulty'],
+                        },
+                    },
+                },
+                required: ['questions'],
+            },
+        },
     });
 
-    // Add board and subject metadata to the top of the markdown
-    const responseText = response.text || '';
-    const markdownWithMetadata = `---
-**Board:** ${board}
-**Subject:** ${subject}
----
-
-${responseText}`;
-
-    return markdownWithMetadata;
+    const jsonText = response.text?.trim() || '';
+    if (!jsonText) {
+      throw new Error("Gemini returned an empty response for questions.");
+    }
+    
+    const data = JSON.parse(jsonText);
+    
+    return {
+      board,
+      subject,
+      chapterTitle,
+      questions: data.questions || [],
+    };
   } catch (error) {
     console.error("Error getting questions from Gemini:", error);
     throw new Error("Failed to analyze the chapter content with Gemini.");
