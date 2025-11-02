@@ -53,13 +53,22 @@ This means:
 - First chapter usually starts around page 1-15
 
 YOUR TASK:
-1. Identify each chapter title
-2. Find ACTUAL page numbers (whole integers only)
-3. If TOC doesn't show page numbers, scan the PDF pages for page numbers
-4. If still unclear, estimate based on chapter sequence: Chapter 1 → page 1, Chapter 2 → page 50, etc.
-5. NEVER use decimal numbers as page numbers!
+1. First, identify if the TOC shows actual page numbers or just section numbers
+2. Look at the page numbers at the BOTTOM or TOP of each PDF page (page headers/footers)
+3. Identify each chapter title from the TOC
+4. For each chapter:
+   - If the TOC has real page numbers (integers), use those
+   - If the TOC only has section numbers (decimals like 1.1, 2.1), scan the PDF pages to find where chapters actually start
+   - Look for chapter headings in the PDF content and note the page number shown on that page
+5. Return page numbers as whole integers only
+6. If you cannot find exact pages, estimate: 
+   - Chapter 1 usually starts around page 1-20
+   - Each chapter is typically 30-60 pages
+   - Sequential chapters don't overlap
 
-Return proper page numbers as integers.`,
+Example Output:
+Chapter "REAL NUMBERS" - found on page 1 of PDF (footer shows "1")
+Chapter "POLYNOMIALS" - found on page 50 of PDF (footer shows "50")`,
             },
             {
               inlineData: {
