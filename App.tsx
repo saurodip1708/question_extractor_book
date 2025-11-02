@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { getChapterListFromPdfText, getQuestionsFromChapterText } from './services/geminiService';
+import { getChapterListFromPdf, getQuestionsFromChapterPdf } from './services/geminiService';
 import { sliceSingleChapterPdf } from './services/pdfService';
 import FileUpload from './components/FileUpload';
 import StatusDisplay from './components/StatusDisplay';
@@ -104,7 +104,7 @@ export default function App() {
       setProcessingState('analyzing_toc');
       setProgressMessage('Analyzing table of contents with Gemini...');
       addLog("Sending TOC PDF to Gemini 2.5 Flash for visual chapter detection.");
-      const chapters = await getChapterListFromPdfText(ai, tocPdfBytes);
+      const chapters = await getChapterListFromPdf(ai, tocPdfBytes);
       if (!chapters || chapters.length === 0) {
         throw new Error("Could not identify chapters from the book's table of contents.");
       }
@@ -140,7 +140,7 @@ export default function App() {
 
         setProgressMessage(`Analyzing Chapter ${chapterIndex}/${chapters.length}: "${chapter.chapterTitle}"`);
         addLog(`Sending chapter PDF to Gemini 2.5 Flash for visual multimodal analysis (text + images).`);
-        const analysisContent = await getQuestionsFromChapterText(ai, chapterPdfData, metadata.board, metadata.subject);
+        const analysisContent = await getQuestionsFromChapterPdf(ai, chapterPdfData, metadata.board, metadata.subject);
         addLog(`Received question analysis from Gemini.`);
 
         const safeFileName = chapter.chapterTitle.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');

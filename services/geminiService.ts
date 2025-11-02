@@ -12,7 +12,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-export async function getChapterListFromPdfText(ai: GoogleGenAI, pdfData: Uint8Array): Promise<Chapter[]> {
+export async function getChapterListFromPdf(ai: GoogleGenAI, pdfData: Uint8Array): Promise<Chapter[]> {
   try {
     const base64Pdf = uint8ArrayToBase64(pdfData);
     
@@ -117,7 +117,7 @@ Look at the visual layout of the table of contents to determine where the actual
   }
 }
 
-export async function getQuestionsFromChapterText(ai: GoogleGenAI, chapterPdfData: Uint8Array, board: string, subject: string): Promise<string> {
+export async function getQuestionsFromChapterPdf(ai: GoogleGenAI, chapterPdfData: Uint8Array, board: string, subject: string): Promise<string> {
   try {
     const base64Pdf = uint8ArrayToBase64(chapterPdfData);
 
