@@ -17,6 +17,25 @@ interface QuestionData {
   questions: Question[];
 }
 
+// Helper function to sanitize text for PDF (remove special characters that can't be encoded)
+function sanitizeText(text: string): string {
+  // Replace common special characters with ASCII equivalents
+  return text
+    .replace(/√/g, 'sqrt')
+    .replace(/π/g, 'pi')
+    .replace(/°/g, ' degrees')
+    .replace(/×/g, 'x')
+    .replace(/÷/g, '/')
+    .replace(/≈/g, '~')
+    .replace(/≠/g, '!=')
+    .replace(/≤/g, '<=')
+    .replace(/≥/g, '>=')
+    .replace(/∞/g, 'infinity')
+    .replace(/∑/g, 'sum')
+    .replace(/∫/g, 'integral')
+    .replace(/[^\x00-\x7F]/g, '?'); // Replace any remaining non-ASCII with ?
+}
+
 export async function generateQuestionsPdf(data: QuestionData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -71,8 +90,8 @@ export async function generateQuestionsPdf(data: QuestionData): Promise<Uint8Arr
     return lines;
   };
   
-  // Draw header with metadata
-  currentPage.drawText(`Board: ${data.board}`, {
+  // Draw header with metadata (sanitized)
+  currentPage.drawText(sanitizeText(`Board: ${data.board}`), {
     x: margin,
     y: yPosition,
     size: fontSize,
@@ -81,7 +100,7 @@ export async function generateQuestionsPdf(data: QuestionData): Promise<Uint8Arr
   });
   yPosition -= lineHeight;
   
-  currentPage.drawText(`Subject: ${data.subject}`, {
+  currentPage.drawText(sanitizeText(`Subject: ${data.subject}`), {
     x: margin,
     y: yPosition,
     size: fontSize,
@@ -90,7 +109,7 @@ export async function generateQuestionsPdf(data: QuestionData): Promise<Uint8Arr
   });
   yPosition -= lineHeight;
   
-  currentPage.drawText(`Chapter: ${data.chapterTitle}`, {
+  currentPage.drawText(sanitizeText(`Chapter: ${data.chapterTitle}`), {
     x: margin,
     y: yPosition,
     size: titleFontSize,
@@ -133,8 +152,9 @@ export async function generateQuestionsPdf(data: QuestionData): Promise<Uint8Arr
     });
     yPosition -= lineHeight * 1.5;
     
-    // Question text (wrapped)
-    const questionLines = wrapText(question.questionText, maxWidth, fontSize, font);
+    // Question text (wrapped and sanitized)
+    const sanitizedText = sanitizeText(question.questionText);
+    const questionLines = wrapText(sanitizedText, maxWidth, fontSize, font);
     for (const line of questionLines) {
       checkPageBreak(lineHeight);
       currentPage.drawText(line, {
@@ -159,7 +179,7 @@ export async function generateQuestionsPdf(data: QuestionData): Promise<Uint8Arr
     
     for (const meta of metadata) {
       checkPageBreak(lineHeight);
-      currentPage.drawText(meta, {
+      currentPage.drawText(sanitizeText(meta), {
         x: margin + 20,
         y: yPosition,
         size: fontSize - 1,
