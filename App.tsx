@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { getChapterListFromPdfText, getQuestionsFromChapterText } from './services/geminiService';
-import { extractText, sliceSingleChapterPdf } from './services/pdfService';
+import { sliceSingleChapterPdf } from './services/pdfService';
 import FileUpload from './components/FileUpload';
 import StatusDisplay from './components/StatusDisplay';
 import ResultsView from './components/ResultsView';
@@ -84,16 +84,29 @@ export default function App() {
     setError(null);
 
     try {
-      addLog("Extracting text from first 20 pages for Table of Contents analysis.");
-      const tocText = await extractText(file, 1, 20);
-      addLog("Text extraction complete.");
+      addLog("Loading PDF document for Table of Contents analysis.");
+      const pdfBytes = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const totalPages = pdfDoc.getPageCount();
+      addLog(`PDF loaded. Total pages: ${totalPages}`);
+
+      // Slice first 10 pages for TOC analysis
+      const tocPages = Math.min(10, totalPages);
+      addLog(`Slicing first ${tocPages} pages for Table of Contents analysis.`);
+      
+      const tocPdfDoc = await PDFDocument.create();
+      const copiedPages = await tocPdfDoc.copyPages(pdfDoc, Array.from({ length: tocPages }, (_, i) => i));
+      copiedPages.forEach(page => tocPdfDoc.addPage(page));
+      
+      const tocPdfBytes = await tocPdfDoc.save();
+      addLog(`TOC PDF created (${Math.round(tocPdfBytes.length / 1024)} KB). Sending to Gemini for analysis.`);
 
       setProcessingState('analyzing_toc');
       setProgressMessage('Analyzing table of contents with Gemini...');
-      addLog("Sending text to Gemini 2.5 Flash for chapter detection.");
-      const chapters = await getChapterListFromPdfText(ai, tocText);
+      addLog("Sending TOC PDF to Gemini 2.5 Flash for visual chapter detection.");
+      const chapters = await getChapterListFromPdfText(ai, tocPdfBytes);
       if (!chapters || chapters.length === 0) {
-        throw new Error("Could not identify chapters from the book's first 20 pages.");
+        throw new Error("Could not identify chapters from the book's table of contents.");
       }
       addLog(`Gemini identified ${chapters.length} chapters.`);
 
@@ -107,11 +120,7 @@ export default function App() {
       setProgressMessage('Chapter list downloaded. Processing individual chapters...');
 
       setProcessingState('processing_chapters');
-      
-      addLog("Loading full PDF document into memory for slicing...");
-      const existingPdfBytes = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
-      addLog("PDF loaded.");
+      addLog("Using loaded PDF document for chapter slicing.");
 
       for (let i = 0; i < chapters.length; i++) {
         const chapter = chapters[i];
@@ -130,9 +139,9 @@ export default function App() {
 
 
         setProgressMessage(`Analyzing Chapter ${chapterIndex}/${chapters.length}: "${chapter.chapterTitle}"`);
-        addLog(`Sending chapter PDF to Gemini 2.5 Flash for multimodal analysis.`);
+        addLog(`Sending chapter PDF to Gemini 2.5 Flash for visual multimodal analysis (text + images).`);
         const analysisContent = await getQuestionsFromChapterText(ai, chapterPdfData, metadata.board, metadata.subject);
-        addLog(`Received analysis from Gemini.`);
+        addLog(`Received question analysis from Gemini.`);
 
         const safeFileName = chapter.chapterTitle.replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');
         const analysisFileName = `${chapterIndex}_${safeFileName}.md`;
