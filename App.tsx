@@ -7,8 +7,9 @@ import StatusDisplay from './components/StatusDisplay';
 import ResultsView from './components/ResultsView';
 import MetadataForm from './components/MetadataForm';
 import ApiKeyInput from './components/ApiKeyInput';
+import ChapterReview from './components/ChapterReview';
 import { GithubIcon, SparklesIcon } from './components/icons';
-import type { ProcessingState, BookMetadata } from './types';
+import type { ProcessingState, BookMetadata, Chapter } from './types';
 import LogDisplay from './components/LogDisplay';
 import { PDFDocument } from 'pdf-lib';
 import saveAs from 'file-saver';
@@ -24,6 +25,8 @@ export default function App() {
   const [metadata, setMetadata] = useState<BookMetadata>({ board: '', subject: '' });
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [ai, setAi] = useState<GoogleGenAI | null>(null);
+  const [detectedChapters, setDetectedChapters] = useState<Chapter[]>([]);
+  const [pdfDocument, setPdfDocument] = useState<PDFDocument | null>(null);
 
   // Load API key from localStorage on mount
   useEffect(() => {
@@ -59,6 +62,8 @@ export default function App() {
     setError(null);
     setLogs([]);
     setMetadata({ board: '', subject: '' });
+    setDetectedChapters([]);
+    setPdfDocument(null);
   };
 
   const handleFileChange = (selectedFile: File | null) => {
@@ -110,25 +115,46 @@ export default function App() {
       }
       addLog(`Gemini identified ${chapters.length} chapters.`);
 
+      // Store PDF document and detected chapters for review
+      setPdfDocument(pdfDoc);
+      setDetectedChapters(chapters);
+      
+      // Move to review stage
+      setProcessingState('reviewing_chapters');
+      setProgressMessage('Please review and confirm chapter page numbers.');
+      addLog("Chapters detected. Waiting for user to review and confirm page numbers.");
 
-      // Download chapter list immediately
+    } catch (err: any) {
+      console.error(err);
+      const errorMessage = err.message || 'An unknown error occurred during processing.';
+      setError(errorMessage);
+      addLog(`ERROR: ${errorMessage}`);
+      setProcessingState('error');
+    }
+  }, [file, addLog, metadata, ai]);
+
+  const processChapters = useCallback(async (confirmedChapters: Chapter[]) => {
+    if (!pdfDocument || !ai) return;
+
+    try {
+      setProcessingState('processing_chapters');
+      setProgressMessage('Processing chapters...');
+      addLog("User confirmed chapter page numbers. Starting chapter processing.");
+
+      // Download chapter list
       addLog("Generating and downloading chapters.txt file.");
-      const chapterListContent = chapters.map(c => `${c.chapterTitle}: Pages ${c.startPage} - ${c.endPage}`).join('\n');
+      const chapterListContent = confirmedChapters.map(c => `${c.chapterTitle}: Pages ${c.startPage} - ${c.endPage}`).join('\n');
       const chapterListBlob = new Blob([chapterListContent], { type: 'text/plain;charset=utf-8' });
       saveAs(chapterListBlob, 'chapters.txt');
       addLog("chapters.txt downloaded successfully.");
-      setProgressMessage('Chapter list downloaded. Processing individual chapters...');
 
-      setProcessingState('processing_chapters');
-      addLog("Using loaded PDF document for chapter slicing.");
-
-      for (let i = 0; i < chapters.length; i++) {
-        const chapter = chapters[i];
+      for (let i = 0; i < confirmedChapters.length; i++) {
+        const chapter = confirmedChapters[i];
         const chapterIndex = i + 1;
         
-        setProgressMessage(`Slicing Chapter ${chapterIndex}/${chapters.length}: "${chapter.chapterTitle}"`);
+        setProgressMessage(`Slicing Chapter ${chapterIndex}/${confirmedChapters.length}: "${chapter.chapterTitle}"`);
         addLog(`Slicing Chapter ${chapterIndex}: "${chapter.chapterTitle}" (pages ${chapter.startPage}-${chapter.endPage}).`);
-        const chapterPdfData = await sliceSingleChapterPdf(pdfDoc, chapter);
+        const chapterPdfData = await sliceSingleChapterPdf(pdfDocument, chapter);
 
         if (!chapterPdfData) {
             console.warn(`Could not slice chapter ${chapterIndex}, page range might be invalid.`);
@@ -138,7 +164,7 @@ export default function App() {
         addLog(`Slicing complete. Chapter size: ${Math.round(chapterPdfData.length / 1024)} KB.`);
 
 
-        setProgressMessage(`Analyzing Chapter ${chapterIndex}/${chapters.length}: "${chapter.chapterTitle}"`);
+        setProgressMessage(`Analyzing Chapter ${chapterIndex}/${confirmedChapters.length}: "${chapter.chapterTitle}"`);
         addLog(`Sending chapter PDF to Gemini 2.5 Flash for visual multimodal analysis (text + images).`);
         const analysisContent = await getQuestionsFromChapterPdf(ai, chapterPdfData, metadata.board, metadata.subject);
         addLog(`Received question analysis from Gemini.`);
@@ -162,7 +188,15 @@ export default function App() {
       addLog(`ERROR: ${errorMessage}`);
       setProcessingState('error');
     }
-  }, [file, addLog, metadata, ai]);
+  }, [pdfDocument, ai, addLog, metadata]);
+
+  const handleCancelReview = () => {
+    setDetectedChapters([]);
+    setPdfDocument(null);
+    setProcessingState('idle');
+    setError(null);
+    addLog('Chapter review cancelled by user.');
+  };
 
 
   return (
@@ -217,7 +251,15 @@ export default function App() {
             </>
           )}
 
-          {processingState !== 'idle' && processingState !== 'done' && (
+          {processingState === 'reviewing_chapters' && detectedChapters.length > 0 && (
+            <ChapterReview 
+              chapters={detectedChapters}
+              onConfirm={processChapters}
+              onCancel={handleCancelReview}
+            />
+          )}
+
+          {processingState !== 'idle' && processingState !== 'done' && processingState !== 'reviewing_chapters' && (
             <>
               <StatusDisplay 
                 state={processingState} 
