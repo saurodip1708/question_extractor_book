@@ -90,9 +90,9 @@ export default function App() {
       const totalPages = pdfDoc.getPageCount();
       addLog(`PDF loaded. Total pages: ${totalPages}`);
 
-      // Slice first 10 pages for TOC analysis
-      const tocPages = Math.min(10, totalPages);
-      addLog(`Slicing first ${tocPages} pages for Table of Contents analysis.`);
+      // Slice first 15 pages for TOC analysis (more pages helps find actual page numbers)
+      const tocPages = Math.min(15, totalPages);
+      addLog(`Slicing first ${tocPages} pages for Table of Contents and page number detection.`);
       
       const tocPdfDoc = await PDFDocument.create();
       const copiedPages = await tocPdfDoc.copyPages(pdfDoc, Array.from({ length: tocPages }, (_, i) => i));
